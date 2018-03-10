@@ -1,0 +1,290 @@
+---
+title: "HMDA"
+author: "Shiqi Lin"
+date: "2018/2/24"
+output:
+  word_document: default
+  pdf_document: default
+---
+The URL for our Team GitHub repository is https://github.com/ritali517/Marketing-Analytics_Shiqi_Rita_Yixuna_Kankan.git
+
+The URL of kernel website is https://www.kaggle.com/jboysen/ny-home-mortgage/kernels
+
+The URL of Kaggle dataset is https://www.kaggle.com/jboysen/ny-home-mortgage/data
+
+```{r}
+setwd("~/Desktop/Marketing Analytics")
+NYHMDA = read.csv("ny_hmda_2015.csv")
+```
+
+1.a.  What???s the data problem
+First of all, descriptions of each variable is missing, which may cause some misunderstanding for users. Second of all, some variables are redundant, for instance, the dataset has both codes and names for the race/gender/ethnicity variables, which is unnecessary and requires huge amount of cleaning. Third, there are many missing data in some key variables, such as for applicant???s income data, out of roughly 60000 of 439654 data are missing. Forth, the data contains some outliers in terms of annual income and loan amount. Finally, we believe the dataset should specify the sampling method.
+
+1.b. Managerial objective
+The managerial objective is to specify the key determinants of obtaining a mortgage from financial institutions. The determinants may include applicant characteristics, property types, loan purpose and location. Therefore, we should figure out the relationships between loan action taken and relevant variables through regression or other statistical methods. 
+
+2. Measurement type of each variable
+Nominal: action_taken_name, agency_name, agency_abbr, applicant_ethnicity_name, applicant_race_name_1, applicant_sex_name, county_name, hoepa_status_name, lien_status_name, loan_purpose_name, loan_type_name, msamd_name, owner_occupancy_name, preapproval_name, property_type_name, purchaser_type_name???action_taken, agency_code, applicant_ethnicity, applicant_race_1, applicant_sex, county_code, hoepa_status, lien_status, loan_purpose, loan_type, msamd, owner_occupancy, preapproval, property_type, purchaser_type, respondent_id, sequence_number 
+
+Ratio: applicant_income_000s, hud_median_family_income, laon_amount_000s, number_of_1_to_4_family_units, number_of_owner_occupied_units, minority_population, population, tract_to_msamd_income
+
+3. Table summarizing range/variation of each variable
+```{r}
+###County name
+county_table <- table(NYHMDA$county_name)
+frame <- as.data.frame(county_table)
+frame[order(frame[,2],decreasing=TRUE),][1:10,]
+```
+Loan applicants in 2015 were from 63 different counties in New York States. Here we only show 10 counties that had most applicants. For example, there were 45,525 applicants in Suffolk in 2015, which took the most part of total applicants. 
+```{r}
+###Agency name
+table(NYHMDA$agency_abbr)
+```
+There are 6 agencies to apply for loans.From the table above, we find that most loans were originated in CFPB(Consumer Financial Protection Bureau) and HUD(Department of Housing and Urban Development)
+```{r}
+###HOEPA status
+table(NYHMDA$hoepa_status_name)
+```
+HOEPA loan is the close-end equity loan bearing rates or fees above a specific percentage or amount under the Home Ownership and Equity Protection Act.Among all loan applications, only 60 were HOEPA loan, while most were not HOEPA loans.
+```{r}
+###Applicant ethnicity name
+table(NYHMDA$applicant_ethnicity_name)
+###Applicant income
+summary(NYHMDA$applicant_income_000s)
+###Applicant race
+table(NYHMDA$applicant_race_name_1)
+###Applicant gender
+table(NYHMDA$applicant_sex_name)
+###Lien status
+table(NYHMDA$lien_status_name)
+###Loan purpose
+table(NYHMDA$loan_purpose_name)
+###Loan type
+table(NYHMDA$loan_type_name)
+###Owner occupancy
+table(NYHMDA$owner_occupancy_name)
+###Property type
+table(NYHMDA$property_type_name)
+###Purchaser type
+table(NYHMDA$purchaser_type_name)
+###Family income
+summary(NYHMDA$hud_median_family_income)
+###Loan amount
+summary(NYHMDA$loan_amount_000s)
+```
+
+4. Missing data
+1) Identify key variables
+Actions in loans, race, ethnicity, gender, income, loan purpose, loan type, lien status, loan amount, property type
+2) Change inputs that are not applicable to null
+```{r}
+NYHMDA$Hispanic="0"
+NYHMDA[NYHMDA$applicant_ethnicity==3,]$Hispanic=NA
+NYHMDA[NYHMDA$applicant_ethnicity==4,]$Hispanic=NA
+NYHMDA$Male="0"
+NYHMDA[NYHMDA$applicant_sex==3,]$Male=NA
+NYHMDA[NYHMDA$applicant_sex==4,]$Male=NA
+NYHMDA$Race="0"
+NYHMDA[NYHMDA$applicant_race_1==6,]$Race=NA
+NYHMDA[NYHMDA$applicant_race_1==7,]$Race=NA
+NYHMDA$First_lien="0"
+NYHMDA[NYHMDA$lien_status==4,]$First_lien=NA
+NYHMDA$Principal_dwelling="0"
+NYHMDA[NYHMDA$owner_occupancy==3,]$Principal_dwelling=NA
+```
+3) Delete columns with unnecessary variables
+```{r}
+NYHMDA_clear<-subset(NYHMDA,select=-c(10,11,12,13,15,16,17,18,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,40,41,42,43,44,45,46,47,68,69,70,77))
+```
+4) Delete rows with missing data
+```{r}
+NYHMDA_new<-na.omit(NYHMDA_clear)
+```
+5. Analysis for key variables(histogram/density plot)
+Variables deem necessary:
+Actions in loans, ethnicity, race, income, loan purpose, gender, lien status, loan amount
+5.a Actions in loans
+```{r}
+hist(NYHMDA_new$action_taken,col="blue",main="Loan action taken",ylab="Count",xlab="Actions taken")
+legend('topright',c("1: Loan originated","2: Application approved but not accepted","3: Denied","4: Withdrawed"
+                    ,"5: File closed for incompleteness","6: Loan purchased by institution","7: Preapproval denied"),cex=0.7)
+```
+Among all the samples, most of loans are originated. 
+
+5.b Ethnicity
+```{r}
+hist(NYHMDA_new$applicant_ethnicity,col="blue",main="Applicant ethnicity",ylab="Count",xlab="Ethnicity",xaxt="n")
+axis(side=1,at=c(1,2),labels=c("Hispanic and Latino","Non hispanic"))
+```
+Among all loan applicants, most of them are non hispanic or latino applicants. 
+5.c Race
+```{r}
+hist(NYHMDA_new$applicant_race_1,col="blue",main="Applicant race",ylab="Count",xlab="Race")
+legend('top',c("1: American Indian or Alaska Native","2: Asian","3: Black or African American","4: Native Hawaiian or Other Pacific Islander"
+                    ,"5: White"),cex=0.7)
+```
+Among all loan applicants, most of them are white people. 
+
+5.d Income
+```{r}
+plot(density(NYHMDA_new$applicant_income_000s),xlab="Income",ylab="Density",main="Applicant income level",xlim=c(1,300),col="darkgreen")
+```
+Among all applicants, most people have annual income of around 60000 dollars. 
+
+5.e Loan purpose
+```{r}
+hist(NYHMDA_new$loan_purpose,col="lightblue",main="Loan purpose type",ylab="Count",xlab="Loan purpose",xaxt="n")
+axis(side=1,at=c(1,2,3),labels=c("Home purchase","Home improvement","Refinancing"))
+```
+In terms of loan purpose type, home purchase and refinancing are the most prevalent purposes. 
+
+5.f Gender
+```{r}
+plot(NYHMDA_new$applicant_sex_name,col="blue",main="Applicant gender",ylab="Count")
+```
+The number of male applicants is almost twice the number of female applicants. 
+5.g Lien status
+```{r}
+hist(NYHMDA_new$lien_status,col="lightblue",main="Lien status",ylab="Count",xlab="Lien status",xaxt="n")
+axis(side=1,at=c(1,2,3),labels=c("First lien","Subordinate","Not secured"))
+```
+Most financial institutions are first lien debt holders of the mortgages. 
+
+5.h Loan amount
+```{r}
+plot(density(NYHMDA_new$loan_amount_000s),xlab="Loan amount",ylab="Density",main="Applicant's loan amount",xlim=c(1,800),col="darkgreen")
+```
+Most loan amount is clustered around 100,000 dollars and average amount is about 234,900 dollars.
+
+6. Bivariate frequency distributions
+In order to better present the context of pictures, we use the variable "action_taken_name" instead of "action_taken" to represent loan action taken. The corresponding relationship between these two variables are as follows:
+1 = Loan originated
+2 = Application approved but not accepted
+3 = Application denied by financial institution
+4 = Application withdrawn by applicant
+5 = File closed for incompleteness
+6 = Loan purchased by institution
+7 = Preapproval request denied by financial institution
+
+6.a Income level to loan action taken
+```{r}
+library(ggplot2)
+ggplot(NYHMDA_new,aes(x=NYHMDA_new$applicant_income_000s,y=NYHMDA_new$action_taken,group=factor(1)))+
+  geom_point()+
+  labs(x="Income",y="Loan action taken",title="Loan actions taken and income level")
+```
+In terms of loan actions taken, we expects applicants with higher annual income have higher chance of obtaining a mortgage and the pattern do shows that applicants who have obtained a loan have higher annual income than those applicants whose loans were denied. Income level for Applicants whose loan applications were originated are more likely to lie between 2,500,000 and 7,500,000. While those whose applications were denied usually had income level lower than 5,000,000. In particular, all applicants whose preapproval were denied had relatively lower level of income.
+
+6.b Loan purpose, income level and loan actions taken
+```{r}
+NYHMDA_new$loan_purpose_name <- factor(NYHMDA_new$loan_purpose_name)
+NYHMDA_new$action_taken <- factor(NYHMDA_new$action_taken)
+ggplot(data=NYHMDA_new,aes(x=NYHMDA_new$applicant_income_000s,y=NYHMDA_new$action_taken,color=loan_purpose_name))+
+  geom_point(size=3)+
+  labs(x="Income level",y="Loan action taken",title="Loan actions taken,loan purpose and income level")
+```
+As for loan purpose, the probability of getting a loan is higher when the purpose of loan is home purchase rather than home improvement and refinancing. However, this conclusion might be biased because in our dataset, most applicants applied loans for their home purchase.
+
+6.c Gender, income level and loan actions taken
+```{r}
+NYHMDA_new$applicant_sex_name <- factor(NYHMDA_new$applicant_sex_name)
+ggplot(data=NYHMDA_new,aes(x=NYHMDA_new$applicant_income_000s,y=NYHMDA_new$action_taken,color=applicant_sex_name))+
+  geom_point(size=2)+
+  labs(x="Income level",y="Loan action taken",title="Loan actions taken,applicant gender and income level")
+```
+According to this picture, male applicants are more likely to get the loan. However, this conclusion is not very persuasive since there are much more male in the our dataset. Lack of female applicants can be the fact that women are less likely to secure a loan or they have relatively lower income thus less likely to secure a loan. 
+
+6.d Ethnicity, income level and loan actions taken
+```{r}
+NYHMDA_new$applicant_ethnicity_name <- factor(NYHMDA_new$applicant_ethnicity_name)
+ggplot(data=NYHMDA_new,aes(x=NYHMDA_new$applicant_income_000s,y=NYHMDA_new$action_taken,color=applicant_ethnicity_name))+
+  geom_point(size=2)+
+  labs(x="Income level",y="Loan action taken",title="Loan actions taken,applicant ethnicity and income level")
+```
+The result of applicant ethnicity is similar to gender.Applicants who are not Hispanic or Latino are more likely to get the loan, but the reason here may be that the amount of Hispanic or Latino is too small in our dataset. If we want a more accurate result, we should increase the percentage of Hispanic or Latino and reduce the percentage of Not Hispanic or Latino.
+
+6.e Lien status, income level and loan actions taken
+```{r}
+NYHMDA_new$lien_status_name <- factor(NYHMDA_new$lien_status_name)
+ggplot(data=NYHMDA_new,aes(x=NYHMDA_new$applicant_income_000s,y=NYHMDA_new$action_taken,color=lien_status_name))+
+  geom_point(size=3)+
+  labs(x="Income level",y="Loan action taken",title="Loan actions taken,lien status and income level")
+```
+For applicants whose loans are originated, none of them are not secured by a lien. However, for applicants whose loans are denied, some of them are not secured by a lien. Thus, loans secured by a first lien have the biggest probability to be originated.
+
+6.f Loan amount and income level
+```{r}
+ggplot(data=NYHMDA_new,aes(x=NYHMDA_new$applicant_income_000s,y=NYHMDA_new$loan_amount_000s))+
+  geom_point()+
+  facet_wrap(~NYHMDA_new$action_taken_name)+
+  labs(x="Income level",y="Loan amount",title="Loan actions taken,loan amount and income level")
+```
+From the 6 pictures above, we can see that applicants who have higher income tend to apply for greater amount of loan, and these applications are more likely to be approved.Income levels of most applications denied by financial institution were relatively low. Therefore, income level is an important factor for applicants to decide the amount of loan they want to apply adn for financial institutions to decide whether to approve loan applications.
+
+7. Conclusion
+In conclusion, the more income and senior lien an applicant has, the more likely she/he will get the loan from financial institutions.
+
+8. Define "Loan_Approval"
+```{r}
+NYHMDA_new$Loan_Approval = 0
+NYHMDA_new[NYHMDA_new$action_taken==2|NYHMDA_new$action_taken==1|NYHMDA_new$action_taken==6,]$Loan_Approval<-1
+NYHMDA_new[NYHMDA_new$action_taken==3|NYHMDA_new$action_taken==5|NYHMDA_new$action_taken==7,]$Loan_Approval<-0
+NYHMDA_new$completeness = "0"
+NYHMDA_new[NYHMDA_new$action_taken==4,]$completeness<-"1"
+```
+
+9.Income level
+```{r}
+summary(NYHMDA_new$hud_median_family_income)
+NYHMDA_new$Income_Level = "0"
+NYHMDA_new[NYHMDA_new$hud_median_family_income<71300,]$Income_Level<-"2"
+NYHMDA_new[NYHMDA_new$hud_median_family_income>=71300,]$Income_Level<-"1"
+```
+
+10.mean loan amount for loans approved & denied
+```{r}
+t.test(NYHMDA_new[NYHMDA_new$Loan_Approval==1,]$loan_amount_000s,NYHMDA_new[NYHMDA_new$Loan_Approval==0,]$loan_amount_000s)
+```
+
+```{r}
+t.test(NYHMDA_new[NYHMDA_new$Income_Level==1,]$Loan_Approval,NYHMDA_new[NYHMDA_new$Income_Level==2,]$Loan_Approval,alternative = "greater")
+```
+
+11.regression
+```{r}
+initial_model <- lm(NYHMDA_new$Loan_Approval ~ NYHMDA_new$loan_amount_000s+NYHMDA_new$hud_median_family_income+factor(NYHMDA_new$applicant_sex)+factor(NYHMDA_new$applicant_race_1))
+summary(initial_model)
+```
+
+12. Partitioning data
+```{r}
+set.seed(2333)
+train.index<-sample(c(1:dim(NYHMDA_new)[1]),dim(NYHMDA_new)[1]*0.7)
+NYHMDA.train<-NYHMDA_new[train.index,]
+NYHMDA.test<-NYHMDA_new[-train.index,]
+```
+
+13. Classification tree
+```{r}
+```
+
+14. Training and testing data
+```{r}
+model_train_1 <- lm(Loan_Approval ~ loan_amount_000s+hud_median_family_income+factor(applicant_sex)+factor(applicant_race_1),data=NYHMDA.train)
+model_train_2<-lm(Loan_Approval ~hud_median_family_income+factor(applicant_ethnicity)+applicant_income_000s+factor(applicant_sex)+factor(hoepa_status)+factor(lien_status)+factor(loan_purpose)+factor(property_type)+loan_amount_000s+factor(applicant_race_1),data=NYHMDA.train)
+
+pred_1<-predict(model_train_1,newdata=NYHMDA.test)
+pred_2<-predict(model_train_2,newdata=NYHMDA.test)
+
+error_1<-NYHMDA.test$Loan_Approval-pred_1
+error_2<-NYHMDA.test$Loan_Approval-pred_2
+mean(error_1^2)
+mean(error_2^2)
+```
+
+```{r}
+model <- lm(NYHMDA_new$Loan_Approval ~ NYHMDA_new$hud_median_family_income+factor(NYHMDA_new$applicant_ethnicity)+NYHMDA_new$applicant_income_000s+factor(NYHMDA_new$applicant_sex)+factor(NYHMDA_new$hoepa_status)+factor(NYHMDA_new$lien_status)+factor(NYHMDA_new$loan_purpose)+factor(NYHMDA_new$property_type)+NYHMDA_new$loan_amount_000s+factor(NYHMDA_new$applicant_race_1))
+summary(model)
+```
+
+
