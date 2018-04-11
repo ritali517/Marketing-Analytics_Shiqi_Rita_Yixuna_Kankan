@@ -1,0 +1,452 @@
+---
+title: "NYHMDA"
+author: "RIta Li, Yixuan Wang"
+date: "April 9, 2018"
+output: html_document
+---
+```{r}
+setwd("~/ConsumerDB")
+NYHMDA = read.csv("HMDA.csv")
+```
+
+1. Managerial objective
+The managerial objective is to specify the key determinants of whether an applicant can obtain a mortgage from financial institutions. The determinants may include applicant characteristics, property types, loan purpose and location. Therefore, we should figure out the relationships between loan action taken and relevant variables through regression or other statistical methods. 
+
+2. Measurement type of each variable
+Nominal (33 in total): action_taken_name, agency_name, agency_abbr, applicant_ethnicity_name, applicant_race_name_1, applicant_sex_name, county_name, hoepa_status_name, lien_status_name, loan_purpose_name, loan_type_name, msamd_name, owner_occupancy_name, preapproval_name, property_type_name, purchaser_type_name, action_taken, agency_code, applicant_ethnicity, applicant_race_1, applicant_sex, county_code, hoepa_status, lien_status, loan_purpose, loan_type, msamd, owner_occupancy, preapproval, property_type, purchaser_type, respondent_id, sequence_number 
+
+Ratio (8 in total): applicant_income_000s, hud_median_family_income, laon_amount_000s, number_of_1_to_4_family_units, number_of_owner_occupied_units, minority_population, population, tract_to_msamd_income
+
+3. Dealing with missing data
+
+We found some key observations missing in terms of some key independent variables such as age, income, ethnicity and gender. To detect whether these observations are missing at random, we will use Chi-square tests to investigate whether these observations are missing at random. 
+
+3.1. Delete unnecessary variables
+First we delete all variables that we deem unnecessary, such as variables concerning HUD, which are community level data. 
+```{r}
+NYHMDA_clear<-subset(NYHMDA,select=-c(10,11,12,13,15,16,17,18,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,40,41,42,43,44,45,46,47,60,61,66,67,68,69,70,77,71,73,74,75,76,78,56,57))
+```
+3.2. Chi square tests
+
+3.2.1. Gender & Loan action taken
+```{r}
+NYHMDA_clear$Gender_ismissing="0"
+NYHMDA_clear[NYHMDA_clear$applicant_sex=="3"|NYHMDA_clear$applicant_sex=="4",]$Gender_ismissing="1"
+library(MASS)
+Gender_loan_action<-table(NYHMDA_clear$action_taken_name,NYHMDA_clear$Gender_ismissing)
+chisq.test(Gender_loan_action)
+```
+According to the Chi-square test, p-value is less than 0.01. Therefore, observations missing under applicant's sex are not missing at random and we will use the mod applicant sex to impute missing observations and create another variable to note whether the observation was missing at first. 
+
+Mode function
+```{r}
+Mode=function(x){
+  ux=sort(unique(x))
+  tabx=table(x)
+  maxf=ux[which(tabx==max(tabx))]
+  return(maxf)
+}
+```
+```{r}
+Mode(NYHMDA_clear$applicant_sex)
+```
+```{r}
+NYHMDA_clear[NYHMDA_clear$applicant_sex=="3"|NYHMDA_clear$applicant_sex=="4",]$applicant_sex="1"
+NYHMDA_clear[NYHMDA_clear$applicant_sex_name=="Information not provided by applicant in mail, Internet, or telephone application"|NYHMDA_clear$applicant_sex_name=="Not applicable",]$applicant_sex_name="Male"
+```
+
+3.2.2. Race & Loan action taken
+```{r}
+NYHMDA_clear$Race_ismissing="0"
+NYHMDA_clear[NYHMDA_clear$applicant_race_1=="6"|NYHMDA_clear$applicant_race_1=="7",]$Race_ismissing="1"
+library(MASS)
+Race_loan_action<-table(NYHMDA_clear$action_taken_name,NYHMDA_clear$Race_ismissing)
+chisq.test(Race_loan_action)
+```
+According to the Chi-square test, p-value is less than 0.01. Therefore, again we will use the mod value to impute missing observations and create another variable to note whether the observation was missing at first. 
+
+```{r}
+Mode(NYHMDA_clear$applicant_race_1)
+```
+```{r}
+NYHMDA_clear[NYHMDA_clear$applicant_race_1=="6"|NYHMDA_clear$applicant_race_1=="7",]$applicant_race_1="5"
+NYHMDA_clear[NYHMDA_clear$applicant_race_name_1=="Information not provided by applicant in mail,Internet,or telephone application"|NYHMDA_clear$applicant_race_name_1=="Not applicable",]$applicant_race_name_1="White"
+```
+
+3.2.3. Ethnicity & Loan action taken
+```{r}
+NYHMDA_clear$Ethnicity_ismissing="0"
+NYHMDA_clear[NYHMDA_clear$applicant_ethnicity=="3"|NYHMDA_clear$applicant_ethnicity=="4",]$Ethnicity_ismissing="1"
+library(MASS)
+Ethnicity_loan_action<-table(NYHMDA_clear$action_taken_name,NYHMDA_clear$Ethnicity_ismissing)
+chisq.test(Ethnicity_loan_action)
+```
+According to the Chi-square test, p-value is less than 0.01. Therefore, again we will use the mod value to impute missing observations and create another variable to note whether the observation was missing at first. 
+```{r}
+Mode(NYHMDA_clear$applicant_ethnicity)
+```
+```{r}
+NYHMDA_clear[NYHMDA_clear$applicant_ethnicity=="3"|NYHMDA_clear$applicant_ethnicity=="4",]$applicant_ethnicity="2"
+NYHMDA_clear[NYHMDA_clear$applicant_ethnicity_name=="Information not provided by applicant in mail,Internet,or telephone application"|NYHMDA_clear$applicant_ethnicity_name=="Not applicable",]$applicant_ethnicity="Not Hispanic or Latino"
+```
+3.2.4. Income & Loan action taken
+```{r}
+NYHMDA_clear$Income_ismissing="0"
+NYHMDA_clear[is.na(NYHMDA_clear$applicant_income_000s),]$Income_ismissing="1"
+library(MASS)
+Income_loan_action<-table(NYHMDA_clear$action_taken_name,NYHMDA_clear$Income_ismissing)
+chisq.test(Income_loan_action)
+```
+According to the Chi-square test, p-value is less than 0.01. Therefore, again we will use the mean income level to impute missing observations and create another variable to note whether the observation was missing at first. 
+
+```{r}
+NYHMDA_clear$applicant_income_000s[is.na(NYHMDA_clear$applicant_income_000s)]=median(NYHMDA_clear$applicant_income_000s,na.rm = TRUE)
+```
+
+
+3.2.5. Lien status & Loan action taken
+```{r}
+NYHMDA_clear$Lien_ismissing="0"
+NYHMDA_clear[NYHMDA_clear$lien_status=="4",]$Lien_ismissing="1"
+library(MASS)
+Lien_loan_action<-table(NYHMDA_clear$action_taken_name,NYHMDA_clear$Lien_ismissing)
+chisq.test(Lien_loan_action)
+```
+According to the Chi-square test, p-value is less than 0.01. Therefore, again we will use the mod value to impute missing observations and create another variable to note whether the observation was missing at first. 
+
+```{r}
+Mode(NYHMDA_clear$lien_status)
+```
+```{r}
+NYHMDA_clear[NYHMDA_clear$lien_status=="4",]$lien_status="1"
+NYHMDA_clear[NYHMDA_clear$lien_status_name=="Not applicable",]$lien_status_name="Secured by a first lien"
+```
+3.2.6. Owner occupancy & Loan action taken
+```{r}
+NYHMDA_clear$Occupancy_ismissing="0"
+NYHMDA_clear[NYHMDA_clear$owner_occupancy=="3",]$Occupancy_ismissing="1"
+library(MASS)
+Occupancy_loan_action<-table(NYHMDA_clear$action_taken_name,NYHMDA_clear$Occupancy_ismissing)
+chisq.test(Occupancy_loan_action)
+```
+According to the Chi-square test, p-value is less than 0.01. Therefore, again we will use the mod value to impute missing observations and create another variable to note whether the observation was missing at first. 
+
+```{r}
+Mode(NYHMDA_clear$owner_occupancy)
+```
+```{r}
+NYHMDA_clear[NYHMDA_clear$owner_occupancy=="3",]$owner_occupancy="1"
+NYHMDA_clear[NYHMDA_clear$owner_occupancy_name=="Not applicable",]$owner_occupancy_name="Owner-occupied as a principal dwelling"
+```
+
+3.3. Summary and rename dataset
+
+```{r}
+NYHMDA_new<-NYHMDA_clear
+```
+The Data Frame now contains 35 variables, down from 79 initially and the number of observations are 439654, all missing observations are imputed with either mode or mean value and we also created missing variable identifiers. 
+
+4. Table summarizing range/variation of key variables
+
+4.1. County name
+```{r}
+county_table <- table(NYHMDA_new$county_name)
+frame <- as.data.frame(county_table)
+frame[order(frame[,2],decreasing=TRUE),][1:10,]
+```
+Loan applicants in 2015 were from 63 different counties in New York States. Here we only show 10 counties that had most applicants. For example, there were 33,194 applicants in Suffolk in 2015, which took the most part of total applicants. 
+
+4.2. Agency name
+```{r}
+table(NYHMDA_new$agency_abbr)
+```
+There are 6 agencies to apply for loans.From the table above, we find that most loans were originated in CFPB(Consumer Financial Protection Bureau) and HUD(Department of Housing and Urban Development)
+
+4.3. HOEPA status
+```{r}
+table(NYHMDA_new$hoepa_status_name)
+```
+HOEPA loan is the closed-end equity loan bearing rates or fees above a specific percentage or amount under the Home Ownership and Equity Protection Act.Among all loan applications, only 55 were HOEPA loan, while most were not HOEPA loans.
+
+5. Analysis for key variables using histogram/density plot
+
+Below we provide histogram/density plot for some variables that we want to have a more visual understanding of their distributions.
+
+5.1.  Actions in loans
+```{r}
+hist(NYHMDA_new$action_taken,col="blue",main="Loan action taken",ylab="Count",xlab="Actions taken")
+legend('topright',c("1: Loan originated","2: Application approved but not accepted","3: Denied","4: Withdrawed" ,"5: File closed for incompleteness","6: Loan purchased by institution","7: Preapproval denied"),cex=0.7)
+```
+According to the census, 180319 over 290940 loans were originated. Rest of loans not originated can be classified into 6 categories: loans approved but not accepted (10977), loans denied (57614), which is the second to top loan action taken, loans withdrawn by applicant(30074), loans closed for incompleteness(11952), loans purchased by institution(0) and pre-approval denied(4). 
+
+5.2.  Ethnicity
+```{r}
+hist(as.numeric(NYHMDA_new$applicant_ethnicity),col="blue",main="Applicant ethnicity",ylab="Count",xlab="Ethnicity",xaxt="n")
+axis(side=1,at=c(1,2),labels=c("Hispanic and Latino","Non hispanic"))
+```
+Among all loan applicants, over 92% of loans (270302/290940) are applied by non-hispanic or latino individuals. According to the law, agencies shouldn't discriminate against individuals in different ethnicities. Therefore, it's interesting to look into whether loan approval depends on applicant's ethnicity or not. 
+
+5.3.  Race
+```{r}
+hist(as.numeric(NYHMDA_new$applicant_race_1),col="blue",main="Applicant race",ylab="Count",xlab="Race")
+legend('top',c("1: American Indian or Alaska Native","2: Asian","3: Black or African American","4: Native Hawaiian or Other Pacific Islander" ,"5: White"),cex=0.7)
+```
+We present this analysis to learn about demographics of the applicants. Among all applicants, 81.3% are white, 18% are distributed almost equally between African American and Asian and the rest belongs to other races. 
+
+5.4. Gender
+```{r}
+plot(NYHMDA_new$applicant_sex_name,col="blue",main="Applicant gender",ylab="Count")
+```
+Among all applicants, the number of male applicants is 194537 over 290940, almost twice the number of female applicants. The difference can be that female are less likely to be in the labor force compared to their male counterparts, thus not able to provide complete documents (stable income) for loan application, which decreases the likelihood of loan approval. 
+
+5.5. Applicant's income
+```{r}
+NYHMDA_new$applicant_income_000s <- as.numeric(NYHMDA_new$applicant_income_000s)
+plot(density(NYHMDA_new$applicant_income_000s),xlab="Income",ylab="Density",main="Applicant income level",xlim=c(1,300),col="darkgreen")
+```
+Among all applicants, most people have annual income of around 90,000 dollars. Another thing worth mentioning is individuals with zero income (less than 20,000 people). As some people denied the disclosure of their income level to the database, we will change their value to zero and create another dummy variable indicating their missing value. 
+
+5.6. Loan amount
+```{r}
+plot(density(NYHMDA_new$loan_amount_000s),xlab="Loan amount",ylab="Density",main="Applicant loan amount",xlim=c(1,1000),col="darkgreen")
+```
+```{r}
+summary(NYHMDA_new$loan_amount_000s)
+```
+Most applicants have applied for loan amounts of around 218,000 dollars. This variables has an IQR of 264,000 dollars, which means that most loans amount from $108,000 to $295,000. 
+
+5.7 Purchaser type
+```{r}
+hist(NYHMDA_new$purchaser_type,col="blue", main="Purchaser Type", ylab="Count", xlab="Purchaser Type",xaxt="n")
+axis(side=1,at=c(0,1,2,3,4,5,6,7,8,9),labels=c("0","1","2","3","4","5","6","7","8","9"))
+legend('topright',c("0: Loan was not originated or was not sold in calendar year","1: Fannie Mae","2: Ginnie Mae","3: Freddie Mac","4: Farmer Mac"
+                    ,"5: Private securitization","6: Commercial bank, savings bank or savings association",
+                    "7: Life insurance company, credit union, mortgage bank, or finance company", 
+                    "8: Affiliate institution", "9: Other"),cex=0.5)
+```
+From the chart of purchaser type, we know that most of home mortgage in NY State is either not sold or not originated. For home mortgage that is sold, main purchasers are Fannie Mae, Ginnie Mae, Freddie Mae and banks. The information shows that secondary home mortgage market in NY State is relatively safe and cautious because most of purchasers are government-sponsored enterprise. 
+
+5.8 Lien Status
+```{r}
+hist(as.numeric(NYHMDA_new$lien_status),col="lightblue",
+     main="Lien status",ylab="Count",xlab="Lien status",xaxt="n")
+axis(side=1,at=c(1,2,3),labels=c("First lien","Subordinate","Not secured"))
+```
+From the chart of lien status, we can see that Most financial institutions are first lien debt holders of the mortgages, which means that if a home mortgage borrower defaults, the home mortgage lender is the first one to get the lien. This is a good phenomenon because borrowers will be less likely to default because of the lien. Also, lenders are protected from losing lots of money.
+
+5.9 Loan Purpose
+```{r}
+hist(NYHMDA_new$loan_purpose,col="lightblue",
+     main="Loan purpose type",ylab="Count",xlab="Loan purpose",xaxt="n")
+axis(side=1,at=c(1,2,3),labels=c("Home purchase","Home improvement","Refinancing"))
+```
+In terms of loan purpose type, home purchase and refinancing are the most prevalent purposes. After all, in general home purchase needs more money than home improvement does. Therefore, information in this chart makes sense.
+
+5.10 Property Type
+```{r}
+hist(NYHMDA_new$property_type,col="blue",
+     main="Property Type",
+     ylab="Count",
+     xlab="Property Type",xaxt="n")
+axis(side=1,at=c(1,2,3),labels=c("1","2","3"))
+legend('top',c("1: One-to-four family dwelling (other than manufactured housing)",
+                    "2: Manufactured housing","3: Multifamily dwelling"),cex=0.8)
+```
+For property type, almost all the property is One-to-four family dwelling (other than manufactured housing). It means that home mortgage application of family dwelling is more than manufactured housing.
+
+5.11 Owner Occupancy
+```{r}
+hist(as.numeric(NYHMDA_new$owner_occupancy),col="blue",
+     main="Owner Occupancy",
+     ylab="Count",
+     xlab="Owner Occupancy",xaxt="n")
+axis(side=1,at=c(1,2),labels=c("1","2"))
+legend('top',c("1: Owner-occupied as a principal dwelling",
+               "2: Not owner-occupied as a principal dwelling"),cex=0.8)
+```
+From the chart of owner occupancy, we can see that most of the situation is that the property to which the loan application relates will be the borrower's principal dwelling. This is a good signal because in this way, borrowers will pay more attention to repaying the debt.
+
+5.12 Loan Type
+```{r}
+plot(NYHMDA_new$loan_type_name,col="blue",
+     main="Loan Type",
+     ylab="Count",
+     xlab="Loan Type",xaxt="n")
+axis(side=1,at=c(1,2,3,4),labels=c("1","2","3","4"))
+legend('top',c("1: Conventional",
+               "2: FHA-insured","3: VA-guaranteed","4: FSA/RHS-guaranteed"),cex=0.6)
+```
+EXPAND:For loan type, most of the loans are not FHA, VA, FSA, or RHS loans.
+
+6. Relationships between variables especially to loan action taken
+In order to better present the context of pictures, we use the variable "action_taken_name" instead of "action_taken" to represent loan action taken. The corresponding relationship between these two variables are as follows:
+1 = Loan originated
+2 = Application approved but not accepted
+3 = Application denied by financial institution
+4 = Application withdrawn by applicant
+5 = File closed for incompleteness
+6 = Loan purchased by institution
+7 = Pre-approval request denied by financial institution
+
+6.1. Income level to loan action taken
+```{r}
+library(ggplot2)
+ggplot(NYHMDA_new,aes(x=NYHMDA_new$applicant_income_000s,y=NYHMDA_new$action_taken,group=factor(1)))+
+  geom_point()+
+  labs(x="Income",y="Loan action taken",title="Loan actions taken and income level")
+```
+In terms of loan actions taken, we expects applicants with higher annual income have higher chance of obtaining a mortgage and the pattern do shows that applicants who have obtained a loan have higher annual income than those applicants whose loans were denied. Income level for Applicants whose loan applications were originated are more likely to lie between 2,500,000 and 7,500,000. While those whose applications were denied usually had income level lower than 5,000,000. In particular, all applicants whose preapproval were denied had relatively low level of income.
+
+6.2.  Loan purpose and loan actions taken
+Code from Kernel
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+NYHMDA_new %>%
+  group_by(loan_purpose_name,action_taken_name) %>%
+  summarise(CountLoanPurpose = n() ) %>%
+  
+  ggplot(aes(x = loan_purpose_name,y = CountLoanPurpose,fill =(action_taken_name))) +
+  geom_bar(stat='identity',colour="white") +
+  labs(x = 'Loan Purpose', y = 'Count', title = 'Loans Purpose And Action Taken') +
+  theme_bw()
+```
+For the plots with two categorical variables, we referred to the plots in the kernal (reference). As for loan purpose, the probability of getting a loan is higher when the purpose of loan is home purchase rather than home improvement and refinancing. Loan application for home improvement is likely to secure a loan as usually it is hard to loan applicants to justify the amount of money they need to borrow for renovation that can generate sufficient cash flows for repayment in the future. 
+
+6.3. Gender and loan actions taken
+```{r}
+NYHMDA_new %>%
+  group_by(applicant_sex_name,action_taken_name) %>%
+  summarise(CountGender = n() ) %>%
+  
+  ggplot(aes(x = applicant_sex_name,y = CountGender,fill =(action_taken_name))) +
+  geom_bar(stat='identity',colour="white") +
+  labs(x = 'Gender', y = 'Count', title = 'Gender And Action Taken') +
+  theme_bw()
+```
+
+According to this picture, male applicants are more likely to get the loan originated. However, we want simply conclude that female are discriminated in loan applications. Compared to male, female may have relatively lower income and income level is usually a key determinant of loan origination. 
+
+6.4.  Ethnicity and loan actions taken
+Code from Kernel
+```{r}
+NYHMDA_new %>%
+  group_by(applicant_ethnicity_name,action_taken_name) %>%
+  summarise(CountEthnicity = n() ) %>%
+  
+  ggplot(aes(x = applicant_ethnicity_name,y = CountEthnicity,fill =(action_taken_name))) +
+  geom_bar(stat='identity',colour="white") +
+  labs(x = 'Ethnicity', y = 'Count', title = 'Ethnicity And Action Taken') +
+  theme_bw()
+```
+The result of applicant ethnicity is similar to gender.Applicants who are not Hispanic or Latino are more likely to get the loan. The reason can be there are certain preferential policies for Hispanic or Latinos in terms of applying for home mortgages. However, the result might not be very robust and we need further regression analysis as most observations are not Hispanic or Latino. 
+
+6.5.  Lien status and loan actions taken
+Code from Kernel
+```{r}
+NYHMDA_new %>%
+  group_by(lien_status_name,action_taken_name) %>%
+  summarise(CountLienStatus = n() ) %>%
+  
+  ggplot(aes(x = lien_status_name,y = CountLienStatus,fill =(action_taken_name))) +
+  geom_bar(stat='identity',colour="white") +
+  labs(x = 'Lien Status', y = 'Count', title = 'Lien Status And Action Taken') +
+  theme_bw()
+```
+Every type of lien status have some loans originated. However, loans secured by a first lien have the biggest probability to be originated. For loans secured by a subordinate lien or even not secured, rejection rates are very high. Therefore, compared to some bivariate plots shown above, we believe lien status is a key determinant for loan status. 
+
+6.6.  Loan amount and income level
+```{r}
+ip<-ggplot(data=NYHMDA_new,aes(x=NYHMDA_new$applicant_income_000s,y=NYHMDA_new$loan_amount_000s))+
+  geom_point()+
+  facet_wrap(~NYHMDA_new$action_taken_name)+
+  labs(x="Income level",y="Loan amount",title="Loan actions taken,loan amount and income level")
+ip+xlim(0,7500)+ylim(0,10000)
+```
+From the 7 pictures above, we can see that applicants who have higher income tend to apply for greater amount of loan, and these applications are more likely to be approved, as shown by the positive slopes. In addtion, income levels of most applications denied by financial institution were relatively low. Therefore, income level is an important factor for applicants to decide the amount of loan they want to apply adn for financial institutions to decide whether to approve loan applications. In the 7 pictures above, we can see income level clustered around 150,000 dollars as a result of mean imputation for missing observations. 
+
+7. Define "Loan_Approval"
+```{r}
+NYHMDA_new$Loan_Approval = 0
+NYHMDA_new[NYHMDA_new$action_taken==2|NYHMDA_new$action_taken==1|NYHMDA_new$action_taken==6,]$Loan_Approval<-1
+NYHMDA_new[NYHMDA_new$action_taken==3|NYHMDA_new$action_taken==5|NYHMDA_new$action_taken==7,]$Loan_Approval<-0
+NYHMDA_new$completeness = "0"
+NYHMDA_new[NYHMDA_new$action_taken==4,]$completeness<-"1"
+```
+The first variable we need in our model is the dependent variable. The purpose is to predicate whether the loan will be approved or denied by the financial institutions. From the data we can see that action taken can be divided into three categories: loan approved, loan not approved and process incompleted. Therefore, we create dummy variable Loan_Approval and completeness to represent these three categories. We regard 1 (Loan originated),2 (Application approved but not accepted) and 6 (Loan purchased by institution) as loan approved. We regard 3 (Application denied by financial institution), 5 (File closed for incompleteness), 7 (Preapproval request denied by financial institution) as loan not approved. We regard 4 (Application withdrawn by applicant) as process incompleteness. 
+8. Define "Income level"
+```{r}
+summary(NYHMDA_new$applicant_income_000s)
+NYHMDA_new$Income_Level = "0"
+#Middle income individuals
+NYHMDA_new[NYHMDA_new$applicant_income_000s<130&NYHMDA_new$applicant_income_000s>=63,]$Income_Level<-"2" 
+#High income individuals
+NYHMDA_new[NYHMDA_new$applicant_income_000s>=130,]$Income_Level<-"1"
+#Low income individuals
+NYHMDA_new[NYHMDA_new$applicant_income_000s<63,]$Income_Level<-"3" 
+```
+We also need to define income level because it may have significant influence on loan approval. We divide applicant income into three levels according to the first quartile and the third quartile. When applicant's income is higher than $140000, it's regarded as 1 (high income level). When applicant's income is lower than $54000, it's regarded as 3 (low income level). Others can be seen as 2 (middle income level).
+
+9. T-tests between groups
+9.1. Difference in loan amounts between loan approved and denied
+```{r}
+t.test(NYHMDA_new[NYHMDA_new$Loan_Approval==1,]$loan_amount_000s,NYHMDA_new[NYHMDA_new$Loan_Approval==0,]$loan_amount_000s)
+```
+Here we want to discover how loan amount can differ between approved loan and denied loan. In the t-test, our Null Hypothesis is: the difference in the mean of loan_amount is equal to 0 between approved loan and denied loan. And the result shows a very small p-value(2.94e-05), which means we should reject the null hypothesis. Thus, loan amount difference between these two groups(approved loan & denied loan) is significant,and the mean loan amount for approved loans is lower than that for denied loans.
+9.2. Difference in loan approval rate between high and low income applicants
+```{r}
+t.test(NYHMDA_new[NYHMDA_new$Income_Level==1,]$Loan_Approval,NYHMDA_new[NYHMDA_new$Income_Level==3,]$Loan_Approval,alternative = "greater")
+table(NYHMDA_new$Loan_Approval,NYHMDA_new$Income_Level)
+```
+When we analyzing the relationship between income level and loan action taken, we only know the general correlation between these two variables. However, we want to further study the quantitative relationship. The Null Hypothesis in this t-test is: the difference in the mean of loan approval rate is less than 0 between high income group and low income group. Since p-value equals to 1, we should accept the null hypothesis. And the result tells us that high income group has higher loan approval rate(68.33%) than low income group does(58.63%). This result makes sense because high income people usually have higher credit than low income people, so financial institutions are more willing to lend money to high income people.
+10.Regression analysis 
+According to all the analysis above, we pick several most important variables including loan amount,applicant income,applicant sex,applicant race and income available as independent variables and loan approval as the dependent variable. We build the initial model to get the first impression and later, we need to do some tests and add other variables into our final model.
+```{r}
+initial_model <- lm(NYHMDA_new$Loan_Approval ~ NYHMDA_new$loan_amount_000s+NYHMDA_new$applicant_income_000s+factor(NYHMDA_new$applicant_sex)+factor(NYHMDA_new$applicant_race_1))
+```
+This reduced version of regression shows an adjusted R-square of 1.143%, suggesting that all variables included only account for 1.143% of variations in loan approval rate. All variables except for loan amount are significant at the 99% level. Higher loan amount and lower income level can give rise to lower rate of loan approval. At the same time, race also play a part, as American Indian has the lowest loan approval rate.
+
+11. Partitioning data
+Here we separate the data into 30% of testing data and 70% of training data. Then, we will run sets of regressions using training data and compare predictability using the testing data. 
+```{r}
+set.seed(2333)
+train.index<-sample(c(1:dim(NYHMDA_new)[1]),dim(NYHMDA_new)[1]*0.7)
+NYHMDA.train<-NYHMDA_new[train.index,]
+NYHMDA.test<-NYHMDA_new[-train.index,]
+```
+
+12. Control for omitted variables
+```{r}
+LienStatus = c('','+lien_status','+lien_status+lien_status*loan_amount_000s')
+Propertytype = c('','+property_type','+property_type+property_type*loan_amount_000s')
+LoanPurpose= c('','+loan_purpose','+loan_purpose+loan_purpose*loan_amount_000s')
+Ethnicity=c('','+applicant_ethnicity')
+formulaSet = paste('Loan_Approval~loan_amount_000s+applicant_income_000s+Income_ismissing+applicant_sex+applicant_race_1+Gender_ismissing+Race_ismissing',apply(expand.grid(LienStatus,Propertytype,LoanPurpose,Ethnicity),1,paste,collapse=''))
+model<-lm(as.formula(formulaSet[1]),data=NYHMDA_new)
+```
+13. Compare models with mse and AIC and BIC
+```{r}
+mse<-rep(0,54)
+for (i in 1:54) {
+Modelset<-lm(as.formula(formulaSet[i]),data=NYHMDA.train)
+mse[i] <- mean((Modelset$fitted.values-NYHMDA.test$Loan_Approval)^2)}
+AIC[i]<-AIC(Modelset)
+matrix <- data.frame(mse=mse,model=formulaSet,order(mse))
+getwd()
+```
+```{r}
+write.csv(mse_matrix,file="C:/Users/rital/OneDrive/Documents/Desktop/mse1.HYHMDA_4.csv")
+```
+
+
+```{r}
+modelStat = data.frame(formulaSet=rep(NA,54),AIC = rep(NA,54), BIC = rep(NA,54))
+rowNum = 1
+for(i in 1:54){
+    currentFit = lm(as.formula(formulaSet[i]),data=NYHMDA_new)
+    modelStat[rowNum,] = c(i,AIC(currentFit), BIC(currentFit))
+    rowNum = rowNum + 1
+}
+print(modelStat)
+```
